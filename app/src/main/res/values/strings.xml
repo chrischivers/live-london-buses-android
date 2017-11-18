@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Live London Buses</string>
+    <string name="title_activity_map">Live London Bus Map</string>
+</resources>
