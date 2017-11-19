@@ -1,73 +1,136 @@
 package io.chiv.livelondonbuses;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.Toast;
-
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
+import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 class ServerClient {
 
+    private static final String TAG = "ServerClient";
     private Context context;
-    private RequestQueue queue;
-    private static String baseUrl ="http://buses.chiv.io";
-    private static List<String> routeList = new ArrayList<>();
+    private OkHttpClient httpClient;
+    private WebSocketClient wsClient;
+    private static String baseUrl = "buses.chiv.io";
+    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private ServerClient(Context context) {
+
+    private ServerClient(Context context, Map map) {
         this.context = context;
-        this. queue = Volley.newRequestQueue(context);
+        httpClient = new OkHttpClient();
     }
 
-    static ServerClient newInstance(Context context) {
-        return new ServerClient(context);
+    static ServerClient newInstance(Context context, Map map) {
+        return new ServerClient(context, map);
     }
 
-    static List<String> getRouteList() {
-        return routeList;
+    void closeWebsocket(String reason) {
+        wsClient.closeWebsocket(reason);
+        wsClient = null;
     }
 
-    void updateRouteList(final MapCallbacks mapCallbacks) {
+    void openWebsocket(String uuid, Map map, String filteringParams) {
+        wsClient = new WebSocketClient(baseUrl, map);
+        wsClient.run(uuid, filteringParams);
+    }
+
+//    void sendWSMessage(String message) {
+//        wsClient.sendMessage(message);
+//    }
+
+    void updateRouteList(final Map map) {
 
         String path = "/routelist";
 
-        JsonArrayRequest jsonRequest = new JsonArrayRequest(baseUrl + path,
-                new Response.Listener<JSONArray>() {
+        Request request = new Request.Builder()
+                .url("http://" + baseUrl + path)
+                .build();
+
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "Error requesting route list from server. Error: " + e.getMessage());
+                e.printStackTrace();
+                call.cancel();
+            }
+
+            @Override
+            public void onResponse(Call call, final Response response) throws IOException {
+                final ArrayList<String> routeList = new ArrayList<>();
+                final String responseBodyAsString = response.body().string();
+
+                map.runOnUiThread(new Runnable() {
                     @Override
-                    public void onResponse(JSONArray response) {
+                    public void run() {
                         try {
-                            for (int i = 0; i < response.length(); i++) {
-                                routeList.add(response.getString(i));
+
+                            JSONArray json = new JSONArray(responseBodyAsString);
+                            for (int i = 0; i < json.length(); i++) {
+                                routeList.add(json.getString(i));
                             }
-                            mapCallbacks.onRouteListUpdated();
-                        } catch (JSONException e){
+                            map.onRouteListUpdated(routeList);
+                        } catch (JSONException e) {
                             e.printStackTrace();
                             Toast.makeText(context,
                                     "Error: " + e.getMessage(),
                                     Toast.LENGTH_LONG).show();
                         }
                     }
-                }, new Response.ErrorListener() {
+                });
 
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                error.printStackTrace();
-                Toast.makeText(context,
-                        "Error: " + error.getMessage(),
-                        Toast.LENGTH_LONG).show();
             }
         });
-
-        queue.add(jsonRequest);
-
     }
+
+    void updateParamsAndGetSnapshot(String uuid, String filterParamsJsonStr, final Map map) {
+
+        System.out.println("Updating parameters using UUID: " + uuid);
+        String path = "/snapshot?uuid=" + uuid;
+
+        RequestBody requestBody = RequestBody.create(JSON, filterParamsJsonStr);
+
+        Request request = new Request.Builder()
+                .url("http://" + baseUrl + path)
+                .post(requestBody)
+                .build();
+
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "Error requesting snapshot from server. Error: " + e.getMessage());
+                e.printStackTrace();
+                call.cancel();
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseBodyAsString = response.body().string();
+                try {
+                    JSONArray json = new JSONArray(responseBodyAsString);
+                    map.onSnapshotReceived(json);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
 }
+
+
