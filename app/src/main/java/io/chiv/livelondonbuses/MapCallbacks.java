@@ -14,5 +14,5 @@ public interface MapCallbacks {
 
     void onSnapshotReceived(JSONArray jsonArray);
 
-    void onjsonReceived(JSONArray jsonArray);
+    void onJsonReceived(JSONArray jsonArray);
 }

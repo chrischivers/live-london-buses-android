@@ -8,14 +8,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
-import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -33,7 +31,10 @@ class ServerClient {
 
     private ServerClient(Context context, Map map) {
         this.context = context;
-        httpClient = new OkHttpClient();
+        httpClient = new OkHttpClient.Builder()
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(true)
+                .build();
     }
 
     static ServerClient newInstance(Context context, Map map) {
@@ -50,10 +51,6 @@ class ServerClient {
         wsClient.run(uuid, filteringParams);
     }
 
-//    void sendWSMessage(String message) {
-//        wsClient.sendMessage(message);
-//    }
-
     void updateRouteList(final Map map) {
 
         String path = "/routelist";
@@ -65,8 +62,11 @@ class ServerClient {
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.e(TAG, "Error requesting route list from server. Error: " + e.getMessage());
-                e.printStackTrace();
+                String errStr = "Error requesting route list from server. Error: " + e.getMessage();
+                Log.e(TAG, errStr, e);
+                Toast.makeText(context,
+                        errStr,
+                        Toast.LENGTH_LONG).show();
                 call.cancel();
             }
 
@@ -75,25 +75,20 @@ class ServerClient {
                 final ArrayList<String> routeList = new ArrayList<>();
                 final String responseBodyAsString = response.body().string();
 
-                map.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-
-                            JSONArray json = new JSONArray(responseBodyAsString);
-                            for (int i = 0; i < json.length(); i++) {
-                                routeList.add(json.getString(i));
-                            }
-                            map.onRouteListUpdated(routeList);
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                            Toast.makeText(context,
-                                    "Error: " + e.getMessage(),
-                                    Toast.LENGTH_LONG).show();
-                        }
+                try {
+                    JSONArray json = new JSONArray(responseBodyAsString);
+                    for (int i = 0; i < json.length(); i++) {
+                        routeList.add(json.getString(i));
                     }
-                });
-
+                    map.runOnUiThread(() -> map.onRouteListUpdated(routeList));
+                } catch (JSONException e) {
+                    String errStr = "Error decoding json route list from server. Error: " + e.getMessage();
+                    Log.e(TAG, errStr, e);
+                    Toast.makeText(context,
+                            errStr,
+                            Toast.LENGTH_LONG).show();
+                    call.cancel();
+                }
             }
         });
     }
@@ -113,8 +108,11 @@ class ServerClient {
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.e(TAG, "Error requesting snapshot from server. Error: " + e.getMessage());
-                e.printStackTrace();
+                String errStr = "Error requesting snapshot from server. Error: " + e.getMessage();
+                Log.e(TAG, errStr, e);
+                Toast.makeText(context,
+                        errStr,
+                        Toast.LENGTH_LONG).show();
                 call.cancel();
             }
 
@@ -123,9 +121,15 @@ class ServerClient {
                 final String responseBodyAsString = response.body().string();
                 try {
                     JSONArray json = new JSONArray(responseBodyAsString);
-                    map.onSnapshotReceived(json);
+                    map.runOnUiThread(() -> map.onSnapshotReceived(json));
+
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    String errStr = "Error decoding snapshot json from server. Error: " + e.getMessage();
+                    Log.e(TAG, errStr + e.getMessage(), e);
+                    Toast.makeText(context,
+                            errStr,
+                            Toast.LENGTH_LONG).show();
+                    call.cancel();
                 }
             }
         });

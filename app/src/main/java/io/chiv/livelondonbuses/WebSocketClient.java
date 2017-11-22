@@ -32,6 +32,7 @@ public final class WebSocketClient extends WebSocketListener {
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(true)
                 .build();
 
         Request request = new Request.Builder()
@@ -73,7 +74,7 @@ public final class WebSocketClient extends WebSocketListener {
             System.out.println("MESSAGE: " + text);
             try {
                 JSONArray jsonArray = new JSONArray(text);
-                map.onjsonReceived(jsonArray);
+                map.runOnUiThread(() -> map.onJsonReceived(jsonArray));
             } catch (JSONException e) {
                 Log.e(TAG, "Invalid json packet received: " + text);
                 e.printStackTrace();
