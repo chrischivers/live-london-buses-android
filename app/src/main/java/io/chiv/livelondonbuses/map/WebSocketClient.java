@@ -1,4 +1,4 @@
-package io.chiv.livelondonbuses;
+package io.chiv.livelondonbuses.map;
 
 import android.util.Log;
 
@@ -12,23 +12,27 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
-import okio.ByteString;
 
 public final class WebSocketClient extends WebSocketListener {
 
     private static final String TAG = "WebSocketClient";
-    private static final Integer WEBSOCKET_NORMAL_CLOSE_CODE = 1000;
+    public static final Integer WEBSOCKET_NORMAL_CLOSE_CODE = 1000;
+    public static final Integer WEBSOCKET_SWITCHOVER_CLOSE_CODE = 4000;
     private String baseUrl;
     private Map map;
 
+    private ServerClient serverClient;
     private WebSocket webSocket;
+    private String uuid;
 
-    WebSocketClient(String baseUrl, Map map) {
+    WebSocketClient(ServerClient serverClient, String baseUrl, Map map) {
+        this.serverClient = serverClient;
         this.baseUrl = baseUrl;
         this.map = map;
     }
 
     void run(String uuid, String filteringParamsJson) {
+        this.uuid = uuid;
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -46,57 +50,53 @@ public final class WebSocketClient extends WebSocketListener {
 
     }
 
-    void closeWebsocket(String reason) {
-        Log.i(TAG, "Closing websocket because: " + reason);
+    void closeWebsocket(Integer closeCode, String reason) {
+        Log.i(TAG, "Closing websocket with code " + closeCode + " because: " + reason);
         sendCloseMessage();
-        webSocket.close(WEBSOCKET_NORMAL_CLOSE_CODE, reason);
+        webSocket.close(closeCode, reason);
         webSocket = null;
     }
 
     private void sendFilteringParams(String filteringParams) {
-        System.out.println("Websocket sending message: " + filteringParams);
+        Log.d(TAG,"Websocket sending filtering parameters: [" + filteringParams + "]");
         webSocket.send((filteringParams));
     }
 
     private void sendCloseMessage() {
-        System.out.println("Websocket sending close message");
+        Log.d(TAG,"Websocket sending close message");
         webSocket.send("CLOSE");
     }
 
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
-        System.out.println("Websocket opened");
+        Log.i(TAG,"Websocket opened");
     }
 
     @Override
     public void onMessage(WebSocket webSocket, String text) {
         if (webSocket != null) {
-            System.out.println("MESSAGE: " + text);
             try {
                 JSONArray jsonArray = new JSONArray(text);
-                map.runOnUiThread(() -> map.onJsonReceived(jsonArray));
+                map.runOnUiThread(() -> map.onPositionJsonReceived(jsonArray));
             } catch (JSONException e) {
-                Log.e(TAG, "Invalid json packet received: " + text);
-                e.printStackTrace();
+                Log.e(TAG, "Error: Invalid json packet received from server [" + text + "]", e);
             }
-        }
-    }
-
-    @Override
-    public void onMessage(WebSocket webSocket, ByteString bytes) {
-        if (webSocket != null) {
-            System.out.println("MESSAGE: " + bytes.hex());
         }
     }
 
     @Override
     public void onClosing(WebSocket webSocket, int code, String reason) {
         webSocket.close(WEBSOCKET_NORMAL_CLOSE_CODE, reason);
-        System.out.println("CLOSE: " + code + " " + reason);
+        Log.i(TAG,"Closing websocket with code " + code + " and reason " + reason);
     }
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-        t.printStackTrace();
+             //EOF exception is expected due to websocket server implementation
+        if (!t.getClass().equals(java.io.EOFException.class)) {
+            Log.e(TAG, "Websocket failure. Switching over to http", t);
+            serverClient.switchOverToHttpPolling(uuid, map, null);
+        }
+
     }
 }

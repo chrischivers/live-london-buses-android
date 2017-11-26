@@ -1,13 +1,21 @@
 package io.chiv.livelondonbuses.utils;
+import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.maps.android.ui.IconGenerator;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.List;
+
+import io.chiv.livelondonbuses.R;
 
 public class MapUtils {
 
@@ -25,58 +33,25 @@ public class MapUtils {
         return new LatLngBounds(expandedSouthWest, expandedNorthEast);
     }
 
-    public static JSONObject getLatLngBoundsJsonObj(LatLngBounds bounds) {
-
-        JSONObject latLngBoundsObj = new JSONObject();
-        try {
-            JSONObject southwestObj = new JSONObject();
-            JSONObject northeastObj = new JSONObject();
-            southwestObj.put("lat", bounds.southwest.latitude);
-            southwestObj.put("lng", bounds.southwest.longitude);
-            northeastObj.put("lat", bounds.northeast.latitude);
-            northeastObj.put("lng", bounds.northeast.longitude);
-
-            latLngBoundsObj.put("southwest", southwestObj);
-            latLngBoundsObj.put("northeast", northeastObj);
-            return latLngBoundsObj;
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return latLngBoundsObj; //TODO is there a better approach?
-        }
+    public static BitmapDescriptor makeIconForRoute(IconGenerator iconFactory, String routeId, int style) {
+        iconFactory.setBackground(new ColorDrawable(Color.TRANSPARENT));
+        iconFactory.setTextAppearance(style);
+        return BitmapDescriptorFactory.fromBitmap(iconFactory.makeIcon(routeId));
     }
 
-    public static JSONArray getSelectedRoutesJsonArray(List<String> selectedRoutes) {
-
-        JSONArray busRouteArray = new JSONArray();
-        try {
-
-            for (int i = 0; i < selectedRoutes.size(); i++) {
-                JSONObject outboundObj = new JSONObject();
-                JSONObject inboundObj = new JSONObject();
-
-                outboundObj.put("id", selectedRoutes.get(i));
-                outboundObj.put("direction", "outbound");
-                inboundObj.put("id", selectedRoutes.get(i));
-                inboundObj.put("direction", "inbound");
-                busRouteArray.put(outboundObj);
-                busRouteArray.put(inboundObj);
-            }
-            return busRouteArray;
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return busRouteArray; //TODO is there a better approach?
-        }
+    public static String getId(String vehicleId, String routeId, String direction) {
+        return "{" +
+                "\"vehicleId\":\"" + vehicleId + "\"," +
+                "\"routeId\":\"" + routeId + "\"," +
+                "\"direction\":\"" + direction + "\"" +
+                "}";
     }
 
-    public static String getFilteringParamsJsonStr(JSONObject latLngBoundsObj, JSONArray selectedRoutesArray) {
-        JSONObject filteringParamsObj = new JSONObject();
-        try {
-            filteringParamsObj.put("busRoutes", selectedRoutesArray);
-            filteringParamsObj.put("latLngBounds", latLngBoundsObj);
-            return filteringParamsObj.toString();
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return filteringParamsObj.toString(); //TODO is there a better approach?
+    public static <T> T getOrElse(T maybeNull, T valueIfNull) {
+        if (maybeNull == null) {
+            return valueIfNull;
+        } else {
+            return maybeNull;
         }
     }
 }

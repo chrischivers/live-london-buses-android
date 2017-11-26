@@ -3,12 +3,8 @@
     <string name="title_activity_map">Live London Bus Map</string>
     <string name="ok">Ok</string>
     <string name="cancel">Cancel</string>
+    <string name="clear">Clear</string>
 
     <string name="selectRoutes">Select Routes</string>
-    <string-array name="routesArray">
-            <item>1</item>
-            <item>2</item>
-            <item>3</item>
-            <item>4</item>
-    </string-array>
+    <string name="afterLocationPermissionDenied">Enable location permission to see your current position on the map</string>
 </resources>

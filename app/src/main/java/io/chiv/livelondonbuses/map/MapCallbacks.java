@@ -1,7 +1,6 @@
-package io.chiv.livelondonbuses;
+package io.chiv.livelondonbuses.map;
 
 import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -14,5 +13,7 @@ public interface MapCallbacks {
 
     void onSnapshotReceived(JSONArray jsonArray);
 
-    void onJsonReceived(JSONArray jsonArray);
+    void onPositionJsonReceived(JSONArray jsonArray);
+
+    void onNextStopMarkerAndPolylineJsonReceived(String id, JSONArray jsonArray, String autoOpenForNextStopId);
 }
