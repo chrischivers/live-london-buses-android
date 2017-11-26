@@ -54,6 +54,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.chiv.livelondonbuses.BuildConfig;
 import io.chiv.livelondonbuses.R;
 import io.chiv.livelondonbuses.models.BusMarker;
 import io.chiv.livelondonbuses.models.PositionData;
@@ -87,7 +88,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
     @Override
     protected void onPause() {
-        Log.i(TAG, "Activity Paused");
+        if (BuildConfig.DEBUG) Log.i(TAG, "Activity Paused");
         if (serverClient != null) {
             serverClient.closeDataStream("Application paused (probably in background)");
         }
@@ -98,7 +99,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
     @Override
     protected void onResume() {
-        Log.i(TAG, "Activity resumed");
+        if (BuildConfig.DEBUG) Log.i(TAG, "Activity resumed");
         generateNewUUID();
         if (serverClient != null) {
             String filteringParams = getFilteringParams();
@@ -147,7 +148,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
     private void setOnCameraIdleListener() {
         mMap.setOnCameraIdleListener(() -> {
-            Log.i(TAG, "On camera idle firing");
+            if (BuildConfig.DEBUG) Log.i(TAG, "On camera idle firing");
             onBoundsChange(getWidenedBounds(getBounds()));
         });
     }
@@ -176,7 +177,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                             idJson.getString("direction"),
                             this, null);
                 } catch (JSONException e) {
-                    Log.e(TAG, "Unable to decode json ID for marker. Json retrieved: [" + id + "]", e);
+                    if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode json ID for marker. Json retrieved: [" + id + "]", e);
                 }
             } else if (tag != null && tag.startsWith("NXTSTP")) {
                 try {
@@ -271,7 +272,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                     filteredJsonArray.put(jsonObj);
                 }
             } catch (JSONException e) {
-                Log.e(TAG, "Unable to decode snapshot data. Data received [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode snapshot data. Data received [" + jsonArray + "]", e);
             }
         }
         handlePositionJson(filteredJsonArray);
@@ -298,10 +299,10 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                 LatLng firstStopPosition = latLngFrom(jsonArray.getJSONObject(0).getJSONObject("busStop").getJSONObject("latLng"));
                 createNextStopPolyline(new ArrayList<>(Arrays.asList(markerCurrentPosition, firstStopPosition)));
             } catch (JSONException e) {
-                Log.e(TAG, "Unable to decode first stop position for nextStop data received. Json received [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode first stop position for nextStop data received. Json received [" + jsonArray + "]", e);
             }
         } catch (NullPointerException e) {
-            Log.e(TAG, "Unable to get marker for id [" + id + "]", e);
+            if (BuildConfig.DEBUG) Log.e(TAG, "Unable to get marker for id [" + id + "]", e);
         }
 
         //Set other markers and polylines
@@ -319,7 +320,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                 createNextStopPolyline(polylineArr);
 
             } catch (JSONException e) {
-                Log.e(TAG, "Error decoding next stops json. Json string received: [" + jsonArray.toString() + "]", e);
+                if (BuildConfig.DEBUG) Log.e(TAG, "Error decoding next stops json. Json string received: [" + jsonArray.toString() + "]", e);
             }
         }
     }
@@ -390,7 +391,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                     busMarker.setLastHandledNextIndex(posData.getNextStopIndex());
                 }
             } catch (JSONException e) {
-                Log.e(TAG, "Unable to decode json position data received. Json data: [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode json position data received. Json data: [" + jsonArray + "]", e);
             }
         }
     }
@@ -559,7 +560,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                         deleteBusMarker(entry.getKey(), 0L);
                     }
                 } catch (JSONException e) {
-                    Log.e(TAG, "Error: Json decoding error on ID: [" + entry.getKey() + "]");
+                    if (BuildConfig.DEBUG) Log.e(TAG, "Error: Json decoding error on ID: [" + entry.getKey() + "]");
                 }
             }
         }

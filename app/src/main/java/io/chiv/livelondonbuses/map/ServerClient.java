@@ -13,6 +13,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
+import io.chiv.livelondonbuses.BuildConfig;
 import io.chiv.livelondonbuses.R;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -50,10 +51,10 @@ class ServerClient {
 
     void openDataStream(String uuid, Map map, String filteringParams) {
         if (!usingHttpPolling) {
-            Log.i(TAG, "Opening websocket for " + uuid);
+            if (BuildConfig.DEBUG) Log.i(TAG, "Opening websocket for " + uuid);
             openWebsocket(uuid, map, filteringParams);
         } else {
-            Log.i(TAG, "Starting http polling for " + uuid);
+            if (BuildConfig.DEBUG) Log.i(TAG, "Starting http polling for " + uuid);
             switchOverToHttpPolling(uuid, map, filteringParams);
         }
     }
@@ -110,7 +111,7 @@ class ServerClient {
             @Override
             public void onFailure(Call call, IOException e) {
                 String errStr = "Error: Unable to retrieve position data from server";
-                Log.e(TAG, errStr, e);
+                if (BuildConfig.DEBUG) Log.e(TAG, errStr, e);
                 Toast.makeText(context, errStr, Toast.LENGTH_LONG).show();
                 call.cancel();
             }
@@ -124,7 +125,7 @@ class ServerClient {
 
                 } catch (JSONException e) {
                     String errStr = "Error: Unable to decode position data from server [" + responseBodyAsString + "]";
-                    Log.e(TAG, errStr + e.getMessage(), e);
+                    if (BuildConfig.DEBUG) Log.e(TAG, errStr + e.getMessage(), e);
                     call.cancel();
                 }
             }
@@ -143,7 +144,7 @@ class ServerClient {
             @Override
             public void onFailure(Call call, IOException e) {
                 String errStr = "Error: Unable to retrieve next stops data from server";
-                Log.e(TAG, errStr, e);
+                if (BuildConfig.DEBUG) Log.e(TAG, errStr, e);
                 Toast.makeText(context,
                         errStr,
                         Toast.LENGTH_LONG).show();
@@ -159,7 +160,7 @@ class ServerClient {
 
                 } catch (JSONException e) {
                     String errStr = "Error: Unable to process next stops data from server [" + responseBodyAsString + "]";
-                    Log.e(TAG, errStr + e.getMessage(), e);
+                    if (BuildConfig.DEBUG) Log.e(TAG, errStr + e.getMessage(), e);
                     call.cancel();
                 }
             }
@@ -178,7 +179,7 @@ class ServerClient {
             @Override
             public void onFailure(Call call, IOException e) {
                 String errStr = "Error: Unable to connect to server to retrieve route list";
-                Log.e(TAG, errStr, e);
+                if (BuildConfig.DEBUG) Log.e(TAG, errStr, e);
                 Toast.makeText(context,
                         errStr,
                         Toast.LENGTH_LONG).show();
@@ -198,7 +199,7 @@ class ServerClient {
                     map.runOnUiThread(() -> map.onRouteListUpdated(routeList));
                 } catch (JSONException e) {
                     String errStr = "Error: Unable to process route list from server [" + responseBodyAsString + "]";
-                    Log.e(TAG, errStr, e);
+                    if (BuildConfig.DEBUG) Log.e(TAG, errStr, e);
                     call.cancel();
                 }
             }
@@ -220,7 +221,7 @@ class ServerClient {
             @Override
             public void onFailure(Call call, IOException e) {
                 String errStr = "Error: Unable to retrieve data from server";
-                Log.e(TAG, errStr, e);
+                if (BuildConfig.DEBUG) Log.e(TAG, errStr, e);
                 Toast.makeText(context,
                         errStr,
                         Toast.LENGTH_LONG).show();
@@ -236,7 +237,7 @@ class ServerClient {
 
                 } catch (JSONException e) {
                     String errStr = "Error: Unable to process data from server [" + responseBodyAsString + "]";
-                    Log.e(TAG, errStr + e.getMessage(), e);
+                    if (BuildConfig.DEBUG) Log.e(TAG, errStr + e.getMessage(), e);
                     call.cancel();
                 }
             }
