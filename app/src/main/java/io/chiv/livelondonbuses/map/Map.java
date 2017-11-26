@@ -155,19 +155,22 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
     private void setOnMarkerCloseListener() {
         mMap.setOnInfoWindowCloseListener(marker -> stopIdForNextStopInfoBoxCurrentlyOpen = null);
+        if (idCurrentlySelected != null) {
+            changeMarkerStyle(idCurrentlySelected, R.style.standardRouteMarkerText);
+        }
     }
 
     private void setOnMarkerClickListener() {
         mMap.setOnMarkerClickListener(marker -> {
 
             if (idCurrentlySelected != null) {
-                markerMap.get(idCurrentlySelected).changeIconTextStyle(iconGenerator, R.style.standardRouteMarkerText);
+                changeMarkerStyle(idCurrentlySelected, R.style.standardRouteMarkerText);
             }
             String tag = (String) marker.getTag();
             if (tag != null && tag.startsWith("BUS")) {
                 String id = tag.substring(7);
                 idCurrentlySelected = id;
-                changeMarkerStyleToActive(id);
+                changeMarkerStyle(id, R.style.activeRouteMarkerText);
                 try {
                     JSONObject idJson = new JSONObject(id);
                     serverClient.getNextStopsMarkerAndPolylineData(
@@ -184,7 +187,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                     JSONObject tagJson = new JSONObject(tag.substring(7));
                     stopIdForNextStopInfoBoxCurrentlyOpen = tagJson.getString("stopId");
                     idCurrentlySelected = tagJson.getJSONObject("id").toString();
-                    markerMap.get(idCurrentlySelected).changeIconTextStyle(iconGenerator, R.style.activeRouteMarkerText);
+                    changeMarkerStyle(idCurrentlySelected, R.style.activeRouteMarkerText);
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -290,8 +293,6 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
         try {
             BusMarker marker = markerMap.get(id);
-            idCurrentlySelected = id;
-            marker.changeIconTextStyle(iconGenerator, R.style.activeRouteMarkerText);
 
             //Set first stop polyline
             try {
@@ -473,10 +474,10 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
         return new BusMarker(id, routeId, imageMarker, textMarker);
     }
 
-    private void changeMarkerStyleToActive(String id) {
+    private void changeMarkerStyle(String id, int style) {
         BusMarker marker = markerMap.get(id);
         if (marker != null) {
-            marker.changeIconTextStyle(iconGenerator, R.style.activeRouteMarkerText);
+            marker.changeIconTextStyle(iconGenerator, style);
         }
     }
 
