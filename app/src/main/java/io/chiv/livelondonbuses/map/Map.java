@@ -1,8 +1,6 @@
 package io.chiv.livelondonbuses.map;
 
 import android.Manifest;
-import android.app.ActionBar;
-import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Context;
@@ -12,19 +10,21 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Handler;
 import android.support.annotation.NonNull;
+import android.support.design.widget.TabLayout;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -59,16 +59,19 @@ import io.chiv.livelondonbuses.R;
 import io.chiv.livelondonbuses.models.BusMarker;
 import io.chiv.livelondonbuses.models.PositionData;
 import io.chiv.livelondonbuses.utils.MarkerAnimation;
+
 import static io.chiv.livelondonbuses.utils.MapUtils.*;
 import static io.chiv.livelondonbuses.utils.JsonHelpers.*;
 
-
-public class Map extends FragmentActivity implements OnMapReadyCallback, MapCallbacks {
+public class Map extends AppCompatActivity implements OnMapReadyCallback, MapCallbacks {
 
     private static final String TAG = "MapActivity";
     private GoogleMap mMap;
     private ServerClient serverClient;
     private String uuid;
+    private String mode = "NONE";
+    TabLayout tabLayout;
+    private FusedLocationProviderClient mFusedLocationClient;
 
     private List<String> selectedRoutes = Collections.synchronizedList(new ArrayList<>());
     private String idCurrentlySelected;
@@ -84,6 +87,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
     private AtomicInteger BUS_MARKER_Z_INDEX_NEXT_AVAILABLE = new AtomicInteger(100);
     private LatLng STARTING_LAT_LNG = new LatLng(51.505485, -0.127889);
+    private int STARTING_ZOOM = 11;
 
 
     @Override
@@ -101,10 +105,11 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
     protected void onResume() {
         if (BuildConfig.DEBUG) Log.i(TAG, "Activity resumed");
         generateNewUUID();
-        if (serverClient != null) {
+        if (serverClient != null && !mode.equals("NONE")) {
             String filteringParams = getFilteringParams();
             serverClient.openDataStream(uuid, this, filteringParams);
             serverClient.updateParamsAndGetSnapshot(uuid, filteringParams, this);
+
         }
         super.onResume();
     }
@@ -113,25 +118,23 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            checkLocationPermission();
-        }
         setContentView(R.layout.activity_map);
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+        tabLayout = findViewById(R.id.tabs);
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mapFragment.getMapAsync(this);
+        Toast.makeText(getApplicationContext(), R.string.routesLoading, Toast.LENGTH_LONG).show();
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-        mMap.setPadding(0, 120, 0, 0);
         mMap.getUiSettings().setMapToolbarEnabled(false);
         mMap.getUiSettings().setRotateGesturesEnabled(false);
-        mMap.getUiSettings().setZoomControlsEnabled(true);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enableMyLocationLayer();
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(STARTING_LAT_LNG, 11));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(STARTING_LAT_LNG, STARTING_ZOOM));
 
         serverClient = ServerClient.newInstance(getApplicationContext(), this);
         serverClient.updateRouteList(this);
@@ -180,7 +183,8 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                             idJson.getString("direction"),
                             this, null);
                 } catch (JSONException e) {
-                    if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode json ID for marker. Json retrieved: [" + id + "]", e);
+                    if (BuildConfig.DEBUG)
+                        Log.e(TAG, "Unable to decode json ID for marker. Json retrieved: [" + id + "]", e);
                 }
             } else if (tag != null && tag.startsWith("NXTSTP")) {
                 try {
@@ -223,11 +227,56 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
     }
 
     private void addRouteSelectionButton(final ArrayList<String> routeList) {
-        Button button = new Button(this);
-        button.setText(R.string.selectRoutes);
-        addContentView(button, new ActionBar.LayoutParams(ActionBar.LayoutParams.MATCH_PARENT, ActionBar.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL));
 
-        button.setOnClickListener(v -> showRouteSelector(routeList));
+        tabLayout.setSelectedTabIndicatorColor(Color.WHITE); //starting with appearance of none selected
+        TabLayout.Tab routesTab = tabLayout.newTab();
+        TabLayout.Tab nearbyTab = tabLayout.newTab();
+
+        routesTab.setText(R.string.routesTab);
+        nearbyTab.setText(R.string.nearbyTab);
+
+        tabLayout.addTab(routesTab);
+        tabLayout.addTab(nearbyTab);
+
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                tabLayout.setSelectedTabIndicatorColor(Color.RED);
+                if (tab.equals(routesTab)) {
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(STARTING_LAT_LNG, STARTING_ZOOM));
+                    mMap.resetMinMaxZoomPreference();
+                    mMap.resetMinMaxZoomPreference();
+                    mode = "ROUTES";
+                    showRouteSelector(routeList);
+                } else if (tab.equals(nearbyTab)) {
+                    mode = "NEARBY";
+                    selectedRoutes.clear();
+                    boolean nearbyModeSuccess = startNearbyMode();
+                    if (!nearbyModeSuccess) {
+                        routesTab.select();
+                        Toast.makeText(getApplicationContext(),
+                                "Unable to activate 'Nearby mode'. Check location permissions are enabled",
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                idCurrentlySelected = null;
+                clearMap();
+
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                tabLayout.setSelectedTabIndicatorColor(Color.RED);
+                if (tab.equals(routesTab)) {
+                    showRouteSelector(routeList);
+                }
+            }
+        });
+
     }
 
     private void showRouteSelector(ArrayList<String> routeList) {
@@ -258,6 +307,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
 
         selectedRoutes = newlySelectedRoutes;
         serverClient.updateParamsAndGetSnapshot(uuid, getFilteringParams(), this);
+
     }
 
     @Override
@@ -275,7 +325,8 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                     filteredJsonArray.put(jsonObj);
                 }
             } catch (JSONException e) {
-                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode snapshot data. Data received [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG)
+                    Log.e(TAG, "Unable to decode snapshot data. Data received [" + jsonArray + "]", e);
             }
         }
         handlePositionJson(filteredJsonArray);
@@ -300,7 +351,8 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                 LatLng firstStopPosition = latLngFrom(jsonArray.getJSONObject(0).getJSONObject("busStop").getJSONObject("latLng"));
                 createNextStopPolyline(new ArrayList<>(Arrays.asList(markerCurrentPosition, firstStopPosition)));
             } catch (JSONException e) {
-                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode first stop position for nextStop data received. Json received [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG)
+                    Log.e(TAG, "Unable to decode first stop position for nextStop data received. Json received [" + jsonArray + "]", e);
             }
         } catch (NullPointerException e) {
             if (BuildConfig.DEBUG) Log.e(TAG, "Unable to get marker for id [" + id + "]", e);
@@ -321,7 +373,8 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                 createNextStopPolyline(polylineArr);
 
             } catch (JSONException e) {
-                if (BuildConfig.DEBUG) Log.e(TAG, "Error decoding next stops json. Json string received: [" + jsonArray.toString() + "]", e);
+                if (BuildConfig.DEBUG)
+                    Log.e(TAG, "Error decoding next stops json. Json string received: [" + jsonArray.toString() + "]", e);
             }
         }
     }
@@ -331,7 +384,7 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
             try {
                 PositionData posData = new PositionData(jsonArray.getJSONObject(i));
 
-                if (isReceivedRouteInSelected(posData.getRouteId()) && isReceivedIndexAheadOfLastHandled(posData.getNextStopIndex(), posData.getId())) {
+                if ((isReceivedRouteInSelected(posData.getRouteId()) || mode.equals("NEARBY")) && isReceivedIndexAheadOfLastHandled(posData.getNextStopIndex(), posData.getId())) {
 
                     deleteExistingMarkerIfClientRunningBehind(posData.getId(), posData.isDeleteAfter(), posData.getNextStopIndex());
 
@@ -392,11 +445,11 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                     busMarker.setLastHandledNextIndex(posData.getNextStopIndex());
                 }
             } catch (JSONException e) {
-                if (BuildConfig.DEBUG) Log.e(TAG, "Unable to decode json position data received. Json data: [" + jsonArray + "]", e);
+                if (BuildConfig.DEBUG)
+                    Log.e(TAG, "Unable to decode json position data received. Json data: [" + jsonArray + "]", e);
             }
         }
     }
-
 
 
     private boolean isReceivedIndexAheadOfLastHandled(Integer receivedIndex, String id) {
@@ -543,7 +596,6 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
     }
 
 
-
     private String getFilteringParams() {
         JSONArray routesArray = getSelectedRoutesJsonArray(selectedRoutes);
         LatLngBounds expandedBounds = getWidenedBounds(getBounds());
@@ -561,7 +613,8 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                         deleteBusMarker(entry.getKey(), 0L);
                     }
                 } catch (JSONException e) {
-                    if (BuildConfig.DEBUG) Log.e(TAG, "Error: Json decoding error on ID: [" + entry.getKey() + "]");
+                    if (BuildConfig.DEBUG)
+                        Log.e(TAG, "Error: Json decoding error on ID: [" + entry.getKey() + "]");
                 }
             }
         }
@@ -592,7 +645,31 @@ public class Map extends FragmentActivity implements OnMapReadyCallback, MapCall
                 }
             }
         }
-        serverClient.updateParamsAndGetSnapshot(uuid, getFilteringParams(), this);
+        if (!mode.equals("NONE")) {
+            serverClient.updateParamsAndGetSnapshot(uuid, getFilteringParams(), this);
+        }
+    }
+
+    private boolean startNearbyMode() {
+        int startingZoomLevel = 16;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
+            if (ActivityCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                mFusedLocationClient.getLastLocation()
+                        .addOnSuccessListener(this, location -> {
+                            if (location != null) {
+                                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), startingZoomLevel));
+                                mMap.setMinZoomPreference(14);
+                                mMap.setMaxZoomPreference(18);
+                            }
+                        });
+                return true;
+            }
+        }
+        return false;
+
     }
 
     private void createOrUpdateBusInfoBox(BusMarker busMarker, String routeId, String nextStopName, String vehicleId, String destination, Long waitTime) {

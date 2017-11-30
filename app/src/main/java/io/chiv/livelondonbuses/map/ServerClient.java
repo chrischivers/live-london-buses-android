@@ -210,6 +210,8 @@ class ServerClient {
 
         String path = "/snapshot?uuid=" + uuid;
 
+        System.out.println("Sending filtering params " + filterParamsJsonStr);
+
         RequestBody requestBody = RequestBody.create(JSON, filterParamsJsonStr);
 
         Request request = new Request.Builder()

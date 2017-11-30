@@ -5,6 +5,12 @@
     <string name="cancel">Cancel</string>
     <string name="clear">Clear</string>
 
+    <string name="routesLoading">Please wait while bus routes load.</string>
+
+
+    <string name="routesTab">Buses by route</string>
+    <string name="nearbyTab">Buses nearby</string>
+
     <string name="selectRoutes">Select Routes</string>
     <string name="afterLocationPermissionDenied">Enable location permission to see your current position on the map</string>
 </resources>

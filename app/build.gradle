@@ -4,10 +4,10 @@ android {
     compileSdkVersion 26
     defaultConfig {
         applicationId "io.chiv.livelondonbuses"
-        minSdkVersion 15
+        minSdkVersion 16
         targetSdkVersion 26
-        versionCode 3
-        versionName "1.2"
+        versionCode 6
+        versionName "1.4"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -31,4 +31,8 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     implementation 'com.squareup.okhttp3:okhttp:3.9.1'
     implementation 'com.google.maps.android:android-maps-utils:0.5'
+    implementation 'us.belka:androidtoggleswitch:1.2.2'
+    implementation 'com.android.support:design:26.1.0'
+    implementation 'com.google.android.gms:play-services-location:11.6.0'
+
 }

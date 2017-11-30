@@ -71,9 +71,16 @@ public class JsonHelpers {
     }
 
     public static String getFilteringParamsJsonStr(JSONObject latLngBoundsObj, JSONArray selectedRoutesArray) {
+        Object selectedRoutesOrNull;
+        if (selectedRoutesArray.length() > 0) {
+            selectedRoutesOrNull = selectedRoutesArray;
+        } else {
+            selectedRoutesOrNull = JSONObject.NULL;
+        }
+
         JSONObject filteringParamsObj = new JSONObject();
         try {
-            filteringParamsObj.put("busRoutes", selectedRoutesArray);
+            filteringParamsObj.put("busRoutes", selectedRoutesOrNull);
             filteringParamsObj.put("latLngBounds", latLngBoundsObj);
             return filteringParamsObj.toString();
         } catch (JSONException e) {
